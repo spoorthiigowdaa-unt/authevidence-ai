@@ -1,0 +1,43 @@
+{
+  "policy_id": "SAMPLE-LUMBAR-MRI-001",
+  "title": "Lumbar Spine MRI Prior Authorization Policy",
+  "policy_type": "SAMPLE",
+  "procedure_code": "72148",
+  "procedure_name": "MRI Lumbar Spine Without Contrast",
+  "criteria": [
+    {
+      "id": "C1",
+      "description": "Persistent lower-back symptoms for at least 6 weeks",
+      "keywords": [
+        "back pain",
+        "lower-back pain",
+        "lumbar"
+      ]
+    },
+    {
+      "id": "C2",
+      "description": "Conservative medication therapy has been attempted",
+      "keywords": [
+        "medication",
+        "ibuprofen",
+        "naproxen"
+      ]
+    },
+    {
+      "id": "C3",
+      "description": "Physical therapy or another conservative treatment has been attempted",
+      "keywords": [
+        "physical therapy"
+      ]
+    },
+    {
+      "id": "C4",
+      "description": "A relevant clinical diagnosis supporting lumbar imaging is documented",
+      "keywords": [
+        "lumbar",
+        "radiculopathy",
+        "back pain"
+      ]
+    }
+  ]
+}

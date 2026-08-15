@@ -1,0 +1,88 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+dist/
+build/
+
+.venv/
+venv/
+env/
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# =========================
+# Node / Next.js
+# =========================
+node_modules/
+frontend/node_modules/
+
+.next/
+frontend/.next/
+
+out/
+frontend/out/
+
+frontend/dist/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Keep lockfile
+!package-lock.json
+!frontend/package-lock.json
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Operating System
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Temporary files
+# =========================
+tmp/
+temp/
+tmpclaude-*
+nul
+
+# =========================
+# Azure local files
+# =========================
+.azure/
+
+# =========================
+# Generated artifacts
+# =========================
+*.pdf
+backend/*_result.json
+
+# =========================
+# Project-specific exclusions
+# =========================
+SKILL.md
+docs/blog-post.md
+docs/*.pptx
