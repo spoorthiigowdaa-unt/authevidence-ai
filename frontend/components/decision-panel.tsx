@@ -66,7 +66,7 @@ export function DecisionPanel({ review, onDecision }: Props) {
     setError(null);
     try {
       const resp = await submitDecision({
-        request_id: review.request_id,
+        request_id: review.request_id ?? "",
         action: "accept",
         reviewer_name: reviewerName.trim(),
       });
@@ -97,7 +97,7 @@ export function DecisionPanel({ review, onDecision }: Props) {
     setError(null);
     try {
       const resp = await submitDecision({
-        request_id: review.request_id,
+        request_id: review.request_id ?? "",
         action: "override",
         override_recommendation: overrideRec,
         override_rationale: overrideRationale.trim(),

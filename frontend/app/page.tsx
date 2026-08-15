@@ -16,12 +16,16 @@ export default function Home() {
         <UploadForm onReviewComplete={setReview} />
         {review && <ReviewDashboard review={review} />}
       </main>
-
+      
+      
       <footer className="border-t mt-16 py-6">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>Prior Authorization Review System</span>
+          <span className="font-medium">
+            AuthEvidence AI
+          </span>
+
           <span>
-            AI-assisted draft &mdash; all decisions require human clinical review
+            Evidence-grounded decision support &mdash; final authorization decisions require human clinical review.
           </span>
         </div>
       </footer>

@@ -1,380 +1,712 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Plus, X, FlaskConical, User, CalendarDays, Hash, CreditCard, Stethoscope, FileText, Send } from "lucide-react";
-import type { PriorAuthRequest, ReviewResponse, ReviewProgress, ProgressEvent, AgentId } from "@/lib/types";
-import { submitReviewStream } from "@/lib/api";
-import { SAMPLE_REQUEST } from "@/lib/sample-case";
-import { ProgressTracker } from "@/components/progress-tracker";
+import {
+  FileText,
+  FlaskConical,
+  Loader2,
+  Send,
+  User,
+  Hash,
+  Stethoscope,
+  Activity,
+} from "lucide-react";
+
+import type { ReviewResponse } from "@/lib/types";
+
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Alert,
+  AlertDescription,
+} from "@/components/ui/alert";
+
 
 interface UploadFormProps {
   onReviewComplete: (review: ReviewResponse) => void;
 }
 
-const emptyRequest: PriorAuthRequest = {
-  patient_name: "",
-  patient_dob: "",
+
+interface AuthEvidenceForm {
+  patient_id: string;
+  age: string;
+  gender: string;
+
+  diagnosis_code: string;
+  diagnosis_description: string;
+
+  medication_name: string;
+  medication_duration_weeks: string;
+
+  treatment_description: string;
+
+  encounter_reason: string;
+
+  procedure_code: string;
+
+  provider_npi: string;
+
+  use_coverage_agent: boolean;
+}
+
+
+const emptyForm: AuthEvidenceForm = {
+  patient_id: "",
+  age: "",
+  gender: "",
+
+  diagnosis_code: "",
+  diagnosis_description: "",
+
+  medication_name: "",
+  medication_duration_weeks: "",
+
+  treatment_description: "",
+
+  encounter_reason: "",
+
+  procedure_code: "72148",
+
   provider_npi: "",
-  diagnosis_codes: [""],
-  procedure_codes: [""],
-  clinical_notes: "",
-  insurance_id: "",
+
+  use_coverage_agent: false,
 };
 
-export function UploadForm({ onReviewComplete }: UploadFormProps) {
-  const [form, setForm] = useState<PriorAuthRequest>(emptyRequest);
+
+const sampleForm: AuthEvidenceForm = {
+  patient_id: "PAT-1002",
+  age: "61",
+  gender: "male",
+
+  diagnosis_code: "M54.16",
+  diagnosis_description: "Lumbar radiculopathy",
+
+  medication_name: "Ibuprofen",
+  medication_duration_weeks: "8",
+
+  treatment_description: "Physical therapy",
+
+  encounter_reason: "Persistent lower-back pain",
+
+  procedure_code: "72148",
+
+  provider_npi: "",
+
+  use_coverage_agent: false,
+};
+
+
+export function UploadForm({
+  onReviewComplete,
+}: UploadFormProps) {
+  const [form, setForm] = useState<AuthEvidenceForm>(emptyForm);
+
   const [loading, setLoading] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<ReviewProgress | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
-  const initialProgress: ReviewProgress = {
-    currentPhase: "preflight",
-    progressPct: 0,
-    message: "Starting review...",
-    agents: {
-      compliance: { status: "pending", detail: "Waiting" },
-      clinical: { status: "pending", detail: "Waiting" },
-      coverage: { status: "pending", detail: "Waiting" },
-      synthesis: { status: "pending", detail: "Waiting" },
-    },
-    phases: {
-      preflight: "pending",
-      phase_1: "pending",
-      phase_2: "pending",
-      phase_3: "pending",
-      phase_4: "pending",
-    },
-  };
 
-  function applyProgressEvent(prev: ReviewProgress, event: ProgressEvent): ReviewProgress {
-    const next = { ...prev };
-    next.currentPhase = event.phase;
-    next.progressPct = event.progress_pct;
-    next.message = event.message;
-    next.phases = { ...prev.phases, [event.phase]: event.status };
-    next.agents = { ...prev.agents };
-    for (const [agentId, agentState] of Object.entries(event.agents ?? {})) {
-      next.agents[agentId as AgentId] = agentState;
-    }
-    return next;
-  }
-
-  function updateField<K extends keyof PriorAuthRequest>(
+  function updateField<K extends keyof AuthEvidenceForm>(
     key: K,
-    value: PriorAuthRequest[K]
+    value: AuthEvidenceForm[K]
   ) {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   }
 
-  function updateCode(
-    field: "diagnosis_codes" | "procedure_codes",
-    index: number,
-    value: string
-  ) {
-    const updated = [...form[field]];
-    updated[index] = value;
-    updateField(field, updated);
-  }
-
-  function addCode(field: "diagnosis_codes" | "procedure_codes") {
-    updateField(field, [...form[field], ""]);
-  }
-
-  function removeCode(
-    field: "diagnosis_codes" | "procedure_codes",
-    index: number
-  ) {
-    if (form[field].length <= 1) return;
-    updateField(
-      field,
-      form[field].filter((_, i) => i !== index)
-    );
-  }
 
   function loadSample() {
-    setForm({ ...SAMPLE_REQUEST });
+    setForm(sampleForm);
     setError(null);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+
+  async function handleSubmit(
+    event: React.FormEvent
+  ) {
+    event.preventDefault();
+
     setError(null);
 
-    const cleaned: PriorAuthRequest = {
-      ...form,
-      diagnosis_codes: form.diagnosis_codes
-        .map((c) => c.trim().toUpperCase())
-        .filter((c) => c),
-      procedure_codes: form.procedure_codes
-        .map((c) => c.trim().toUpperCase())
-        .filter((c) => c),
-    };
+    if (!form.patient_id.trim()) {
+      setError("Patient ID is required.");
+      return;
+    }
 
-    // Pre-submit guards mirror backend Pydantic validators (issue #28)
-    // so an obviously invalid form never burns a backend round-trip.
-    if (cleaned.diagnosis_codes.length === 0) {
-      setError("Add at least one diagnosis code (ICD-10).");
+    if (!form.procedure_code.trim()) {
+      setError("Procedure code is required.");
       return;
     }
-    if (cleaned.procedure_codes.length === 0) {
-      setError("Add at least one procedure code (CPT/HCPCS).");
-      return;
-    }
-    if (cleaned.patient_dob && cleaned.patient_dob > new Date().toISOString().slice(0, 10)) {
-      setError("Date of birth cannot be in the future.");
+
+    if (!form.diagnosis_description.trim()) {
+      setError("Diagnosis description is required.");
       return;
     }
 
     setLoading(true);
-    setProgress(initialProgress);
 
-    abortRef.current = submitReviewStream(
-      cleaned,
-      (event) => {
-        setProgress((prev) => prev ? applyProgressEvent(prev, event) : prev);
-      },
-      (result) => {
-        setLoading(false);
-        setProgress(null);
-        onReviewComplete(result);
-        toast.success("Review complete", {
-          description: result.recommendation === "approve"
-            ? "Recommendation: Approve"
-            : "Recommendation: Pend for Review",
-        });
-      },
-      (errMsg) => {
-        setLoading(false);
-        setProgress((prev) => prev ? { ...prev, error: errMsg } : prev);
-        setError(errMsg);
-        toast.error("Review failed", { description: errMsg });
-      },
-    );
+    try {
+      const conditions = [
+        {
+          code: form.diagnosis_code.trim(),
+          description: form.diagnosis_description.trim(),
+          status: "active",
+        },
+      ];
+
+      const medications =
+        form.medication_name.trim()
+          ? [
+              {
+                name: form.medication_name.trim(),
+                status: "completed",
+                duration_weeks:
+                  form.medication_duration_weeks
+                    ? Number(form.medication_duration_weeks)
+                    : null,
+              },
+            ]
+          : [];
+
+      const procedures =
+        form.treatment_description.trim()
+          ? [
+              {
+                code: "97110",
+                description: form.treatment_description.trim(),
+                date: new Date().toISOString().slice(0, 10),
+              },
+            ]
+          : [];
+
+      const encounters =
+        form.encounter_reason.trim()
+          ? [
+              {
+                type: "outpatient",
+                reason: form.encounter_reason.trim(),
+              },
+            ]
+          : [];
+
+      const requestBody = {
+        patient_data: {
+          patient_id: form.patient_id.trim(),
+
+          age: form.age
+            ? Number(form.age)
+            : null,
+
+          gender: form.gender || null,
+
+          conditions,
+
+          medications,
+
+          procedures,
+
+          observations: [],
+
+          encounters,
+        },
+
+        procedure_code: form.procedure_code.trim(),
+
+        provider_npi:
+          form.provider_npi.trim() || null,
+
+        use_coverage_agent:
+          form.use_coverage_agent,
+      };
+
+      console.log(
+        "AuthEvidence request:\n" +
+          JSON.stringify(requestBody, null, 2)
+      );
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/authevidence/review",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify(requestBody),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const message =
+          data?.detail ??
+          "Prior authorization review failed.";
+
+        throw new Error(
+          typeof message === "string"
+            ? message
+            : JSON.stringify(message)
+        );
+      }
+
+      onReviewComplete(data as ReviewResponse);
+
+      const readiness =
+        data.authorization_readiness?.readiness_score;
+
+      toast.success(
+        "AuthEvidence review complete",
+        {
+          description:
+            readiness !== undefined
+              ? `Authorization readiness: ${readiness}%`
+              : "Review completed successfully.",
+        }
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unable to complete review.";
+
+      setError(message);
+
+      toast.error(
+        "Review failed",
+        {
+          description: message,
+        }
+      );
+    } finally {
+      setLoading(false);
+    }
   }
+
 
   return (
     <Card className="shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardHeader className="flex flex-row items-center justify-between gap-4 pb-3">
+
         <div>
           <CardTitle className="text-lg flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            New Authorization Request
+            New Prior Authorization Review
           </CardTitle>
+
           <p className="text-sm text-muted-foreground mt-1">
-            Enter patient and procedure details for AI-assisted clinical review
+            Submit clinical evidence for evidence-grounded policy review
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={loadSample}>
+
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={loadSample}
+        >
           <FlaskConical className="mr-1 h-3.5 w-3.5" />
-          Load Sample Case
+          Load Sample
         </Button>
+
       </CardHeader>
 
+
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Row 1: Patient info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="patient_name" className="flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                Patient Name
-              </Label>
-              <Input
-                id="patient_name"
-                placeholder="Jane Doe"
-                value={form.patient_name}
-                onChange={(e) => updateField("patient_name", e.target.value)}
-                required
-              />
+
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6"
+        >
+
+          {/* Patient */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="patient_dob" className="flex items-center gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                Date of Birth
-              </Label>
-              <Input
-                id="patient_dob"
-                type="date"
-                value={form.patient_dob}
-                max={new Date().toISOString().slice(0, 10)}
-                onChange={(e) => updateField("patient_dob", e.target.value)}
-                required
-              />
+
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">
+                Patient
+              </span>
             </div>
           </div>
 
-          {/* Row 2: Provider / Insurance */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+
             <div className="space-y-2">
-              <Label htmlFor="provider_npi" className="flex items-center gap-1.5">
-                <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                Provider NPI
+              <Label
+                htmlFor="patient_id"
+                className="flex items-center gap-1.5"
+              >
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                Patient ID
               </Label>
+
+              <Input
+                id="patient_id"
+                placeholder="PAT-1001"
+                value={form.patient_id}
+                onChange={(e) =>
+                  updateField(
+                    "patient_id",
+                    e.target.value
+                  )
+                }
+                required
+              />
+            </div>
+
+
+            <div className="space-y-2">
+              <Label htmlFor="age">
+                Age
+              </Label>
+
+              <Input
+                id="age"
+                type="number"
+                min="0"
+                max="120"
+                placeholder="58"
+                value={form.age}
+                onChange={(e) =>
+                  updateField(
+                    "age",
+                    e.target.value
+                  )
+                }
+              />
+            </div>
+
+
+            <div className="space-y-2">
+              <Label htmlFor="gender">
+                Gender
+              </Label>
+
+              <select
+                id="gender"
+                value={form.gender}
+                onChange={(e) =>
+                  updateField(
+                    "gender",
+                    e.target.value
+                  )
+                }
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+              >
+                <option value="">
+                  Select
+                </option>
+
+                <option value="female">
+                  Female
+                </option>
+
+                <option value="male">
+                  Male
+                </option>
+
+                <option value="other">
+                  Other
+                </option>
+
+                <option value="unknown">
+                  Unknown
+                </option>
+              </select>
+            </div>
+
+          </div>
+
+
+          {/* Clinical evidence */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">
+                Clinical Evidence
+              </span>
+            </div>
+          </div>
+
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="diagnosis_code"
+                className="flex items-center gap-1.5"
+              >
+                <Stethoscope className="h-3.5 w-3.5 text-muted-foreground" />
+                Diagnosis Code
+              </Label>
+
+              <Input
+                id="diagnosis_code"
+                placeholder="M54.16"
+                value={form.diagnosis_code}
+                onChange={(e) =>
+                  updateField(
+                    "diagnosis_code",
+                    e.target.value
+                  )
+                }
+              />
+            </div>
+
+
+            <div className="space-y-2">
+              <Label htmlFor="diagnosis_description">
+                Diagnosis
+              </Label>
+
+              <Input
+                id="diagnosis_description"
+                placeholder="Lumbar radiculopathy"
+                value={form.diagnosis_description}
+                onChange={(e) =>
+                  updateField(
+                    "diagnosis_description",
+                    e.target.value
+                  )
+                }
+                required
+              />
+            </div>
+
+          </div>
+
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+            <div className="space-y-2">
+              <Label htmlFor="medication_name">
+                Medication
+              </Label>
+
+              <Input
+                id="medication_name"
+                placeholder="Ibuprofen"
+                value={form.medication_name}
+                onChange={(e) =>
+                  updateField(
+                    "medication_name",
+                    e.target.value
+                  )
+                }
+              />
+            </div>
+
+
+            <div className="space-y-2">
+              <Label htmlFor="medication_duration_weeks">
+                Medication Duration (weeks)
+              </Label>
+
+              <Input
+                id="medication_duration_weeks"
+                type="number"
+                min="0"
+                placeholder="8"
+                value={form.medication_duration_weeks}
+                onChange={(e) =>
+                  updateField(
+                    "medication_duration_weeks",
+                    e.target.value
+                  )
+                }
+              />
+            </div>
+
+          </div>
+
+
+          <div className="space-y-2">
+            <Label htmlFor="treatment_description">
+              Prior Treatment / Procedure
+            </Label>
+
+            <Input
+              id="treatment_description"
+              placeholder="Physical therapy"
+              value={form.treatment_description}
+              onChange={(e) =>
+                updateField(
+                  "treatment_description",
+                  e.target.value
+                )
+              }
+            />
+
+            <p className="text-xs text-muted-foreground">
+              Leave this empty to simulate missing conservative-treatment evidence.
+            </p>
+          </div>
+
+
+          <div className="space-y-2">
+            <Label
+              htmlFor="encounter_reason"
+              className="flex items-center gap-1.5"
+            >
+              <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+              Clinical / Encounter Reason
+            </Label>
+
+            <Textarea
+              id="encounter_reason"
+              rows={3}
+              placeholder="Persistent lower-back pain"
+              value={form.encounter_reason}
+              onChange={(e) =>
+                updateField(
+                  "encounter_reason",
+                  e.target.value
+                )
+              }
+            />
+          </div>
+
+
+          {/* Authorization */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">
+                Authorization
+              </span>
+            </div>
+          </div>
+
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="procedure_code"
+                className="flex items-center gap-1.5"
+              >
+                <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+                Requested Procedure Code
+              </Label>
+
+              <Input
+                id="procedure_code"
+                placeholder="72148"
+                value={form.procedure_code}
+                onChange={(e) =>
+                  updateField(
+                    "procedure_code",
+                    e.target.value
+                  )
+                }
+                required
+              />
+
+              <p className="text-xs text-muted-foreground">
+                72148 = Lumbar MRI, 73721 = Knee MRI
+              </p>
+            </div>
+
+
+            <div className="space-y-2">
+              <Label htmlFor="provider_npi">
+                Provider NPI (optional)
+              </Label>
+
               <Input
                 id="provider_npi"
                 placeholder="1234567890"
                 value={form.provider_npi}
-                onChange={(e) => updateField("provider_npi", e.target.value)}
-                required
+                onChange={(e) =>
+                  updateField(
+                    "provider_npi",
+                    e.target.value
+                  )
+                }
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="insurance_id" className="flex items-center gap-1.5">
-                <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
-                Insurance ID (optional)
-              </Label>
-              <Input
-                id="insurance_id"
-                placeholder="MCR-123456789A"
-                value={form.insurance_id ?? ""}
-                onChange={(e) => updateField("insurance_id", e.target.value)}
-              />
-            </div>
+
           </div>
 
-          {/* Section divider: Codes */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Codes</span></div>
-          </div>
 
-          {/* Dynamic code arrays */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Diagnosis codes */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <Stethoscope className="h-3.5 w-3.5 text-muted-foreground" />
-                Diagnosis Codes (ICD-10)
-              </Label>
-              {form.diagnosis_codes.map((code, i) => (
-                <div key={i} className="flex gap-1">
-                  <Input
-                    placeholder="e.g. R91.1"
-                    value={code}
-                    pattern="^[A-Ta-tV-Zv-z][0-9][A-Za-z0-9](?:\.[A-Za-z0-9]{1,4})?$"
-                    title="ICD-10 format, e.g. R91.1, M17.11, J18.9"
-                    required={i === 0}
-                    onChange={(e) =>
-                      updateCode("diagnosis_codes", i, e.target.value)
-                    }
-                  />
-                  {form.diagnosis_codes.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeCode("diagnosis_codes", i)}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addCode("diagnosis_codes")}
-              >
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                Add Code
-              </Button>
-            </div>
+          <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer">
 
-            {/* Procedure codes */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                Procedure Codes (CPT)
-              </Label>
-              {form.procedure_codes.map((code, i) => (
-                <div key={i} className="flex gap-1">
-                  <Input
-                    placeholder="e.g. 31628"
-                    value={code}
-                    pattern="^([0-9]{4}[0-9A-Za-z]|[A-Za-z][0-9]{4})$"
-                    title="CPT/HCPCS format, e.g. 27447, 31628, J3490, 0028T"
-                    required={i === 0}
-                    onChange={(e) =>
-                      updateCode("procedure_codes", i, e.target.value)
-                    }
-                  />
-                  {form.procedure_codes.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeCode("procedure_codes", i)}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addCode("procedure_codes")}
-              >
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                Add Code
-              </Button>
-            </div>
-          </div>
-
-          {/* Section divider: Clinical Information */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Clinical Information</span></div>
-          </div>
-
-          {/* Clinical notes */}
-          <div className="space-y-2">
-            <Label htmlFor="clinical_notes" className="flex items-center gap-1.5">
-              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-              Clinical Notes
-            </Label>
-            <Textarea
-              id="clinical_notes"
-              rows={5}
-              placeholder="Enter clinical notes, history of present illness, prior treatments..."
-              value={form.clinical_notes}
-              onChange={(e) => updateField("clinical_notes", e.target.value)}
-              required
+            <input
+              type="checkbox"
+              checked={form.use_coverage_agent}
+              onChange={(e) =>
+                updateField(
+                  "use_coverage_agent",
+                  e.target.checked
+                )
+              }
+              className="mt-1"
             />
-          </div>
 
-          {/* Progress tracker */}
-          {progress && (
-            <ProgressTracker progress={progress} />
-          )}
+            <div>
+              <p className="text-sm font-medium">
+                Enable CMS/NPI Coverage Enrichment
+              </p>
 
-          {/* Error */}
+              <p className="text-xs text-muted-foreground">
+                Uses the optional external Coverage Agent when available.
+              </p>
+            </div>
+
+          </label>
+
+
           {error && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>
+                {error}
+              </AlertDescription>
             </Alert>
           )}
 
-          {/* Submit */}
-          <Button type="submit" className="w-full bg-gradient-to-r from-brand to-brand-dark hover:from-brand-hover hover:to-brand-hover-dark text-white shadow-md" disabled={loading}>
+
+          <Button
+            type="submit"
+            className="w-full bg-gradient-to-r from-brand to-brand-dark hover:from-brand-hover hover:to-brand-hover-dark text-white shadow-md"
+            disabled={loading}
+          >
+
             {loading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Send className="mr-2 h-4 w-4" />
             )}
-            {loading ? "Submitting for Review..." : "Submit for Review"}
+
+            {loading
+              ? "Running AuthEvidence Review..."
+              : "Run Prior Authorization Review"}
+
           </Button>
+
         </form>
+
       </CardContent>
     </Card>
   );

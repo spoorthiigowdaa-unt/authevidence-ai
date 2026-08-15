@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.observability import setup_observability
-from app.routers import review, decision, agents
+from app.routers import review, decision, agents, authevidence
 
 # Configure logging — level controlled by LOG_LEVEL env var (default INFO for prod).
 # Set LOG_LEVEL=DEBUG in .env or container env for verbose local development.
@@ -40,6 +40,7 @@ app.add_middleware(
 app.include_router(review.router, prefix="/api")
 app.include_router(decision.router, prefix="/api")
 app.include_router(agents.router, prefix="/api")
+app.include_router(authevidence.router, prefix="/api")
 
 
 @app.get("/health")

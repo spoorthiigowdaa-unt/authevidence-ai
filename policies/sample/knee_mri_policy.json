@@ -1,0 +1,44 @@
+{
+  "policy_id": "SAMPLE-KNEE-MRI-001",
+  "title": "Knee MRI Prior Authorization Policy",
+  "policy_type": "SAMPLE",
+  "procedure_code": "73721",
+  "procedure_name": "MRI Lower Extremity Joint Without Contrast",
+  "criteria": [
+    {
+      "id": "K1",
+      "description": "Persistent knee pain is documented",
+      "keywords": [
+        "knee pain",
+        "knee"
+      ]
+    },
+    {
+      "id": "K2",
+      "description": "Conservative medication therapy has been attempted",
+      "keywords": [
+        "medication",
+        "ibuprofen",
+        "naproxen"
+      ]
+    },
+    {
+      "id": "K3",
+      "description": "Physical therapy or another conservative treatment has been attempted",
+      "keywords": [
+        "physical therapy",
+        "physiotherapy"
+      ]
+    },
+    {
+      "id": "K4",
+      "description": "A relevant knee diagnosis is documented",
+      "keywords": [
+        "knee",
+        "osteoarthritis",
+        "meniscus",
+        "ligament"
+      ]
+    }
+  ]
+}

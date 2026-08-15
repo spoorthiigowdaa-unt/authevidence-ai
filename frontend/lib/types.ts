@@ -158,12 +158,110 @@ export interface SynthesisAuditTrail {
   agents_consulted?: string[];
 }
 
-export interface ReviewResponse {
-  request_id: string;
-  recommendation: "approve" | "pend_for_review";
+export interface AuthEvidencePolicy {
+  policy_id: string;
+  title: string;
+  procedure_code: string;
+  procedure_name: string;
+}
+
+export interface AuthEvidenceDiagnosis {
+  code?: string;
+  description?: string;
+  onset_date?: string | null;
+  status?: string;
+}
+
+export interface AuthEvidenceMedication {
+  name?: string;
+  status?: string;
+  start_date?: string | null;
+  duration_weeks?: number | null;
+}
+
+export interface AuthEvidenceProcedure {
+  code?: string;
+  description?: string;
+  date?: string | null;
+}
+
+export interface AuthEvidenceObservation {
+  name?: string;
+  value?: string | number | null;
+  unit?: string | null;
+  date?: string | null;
+}
+
+export interface AuthEvidenceEncounter {
+  type?: string;
+  date?: string | null;
+  reason?: string;
+}
+
+export interface AuthEvidenceClinicalEvidence {
+  patient_id?: string;
+  age?: number | null;
+  gender?: string | null;
+  diagnoses: AuthEvidenceDiagnosis[];
+  medications: AuthEvidenceMedication[];
+  procedures: AuthEvidenceProcedure[];
+  observations: AuthEvidenceObservation[];
+  encounters: AuthEvidenceEncounter[];
+  supporting_evidence: string[];
+}
+
+export interface AuthEvidenceCriterionAssessment {
+  criterion_id: string;
+  criterion: string;
+  status: "MET" | "NOT_MET" | "INSUFFICIENT";
   confidence: number;
-  confidence_level: string; // "HIGH" | "MEDIUM" | "LOW"
-  summary: string;
+  met: boolean;
+  evidence: string[];
+  notes: string;
+  source: string;
+}
+
+export interface AuthEvidenceMissingEvidence {
+  criterion_id: string;
+  criterion: string;
+  status: string;
+  reason: string;
+  request: string;
+}
+
+export interface AuthorizationReadiness {
+  readiness_score: number;
+  evidence_confidence: number;
+  confidence_level: "HIGH" | "MEDIUM" | "LOW";
+  criteria_met: number;
+  criteria_total: number;
+  missing_evidence: AuthEvidenceMissingEvidence[];
+  status:
+    | "READY_FOR_REVIEW"
+    | "NEARLY_READY"
+    | "ADDITIONAL_DOCUMENTATION_REQUIRED"
+    | "NOT_READY"
+    | "INSUFFICIENT_DATA";
+}
+
+export interface CoverageEnrichment {
+  available: boolean;
+  reason?: string;
+  provider_verification?: ProviderVerification | null;
+  coverage_policies?: CoveragePolicy[];
+  policy_references?: string[];
+  coverage_limitations?: string[];
+  documentation_gaps?: DocumentationGap[];
+  tool_results?: ToolResult[];
+}
+
+export interface ReviewResponse {
+  request_id?: string;
+  recommendation?: "approve" | "pend_for_review";
+  confidence?: number;
+  confidence_level?: string;
+  summary?: string;
+
   tool_results: ToolResult[];
   clinical_rationale: string;
   coverage_criteria_met: string[];
@@ -171,14 +269,26 @@ export interface ReviewResponse {
   missing_documentation: string[];
   documentation_gaps: DocumentationGap[];
   policy_references: string[];
+
   decision_gate?: string;   // "gate_1_provider" | "gate_2_codes" | "gate_3_necessity" | "approved"
   criteria_summary?: string; // e.g. "8 of 8 criteria MET"
   synthesis_audit_trail?: SynthesisAuditTrail;
   disclaimer: string;
+  
   agent_results?: AgentResults;
   audit_trail?: AuditTrail;
   audit_justification?: string;
   audit_justification_pdf?: string;
+    // AuthEvidence AI fields
+  patient_id?: string;
+  policy?: AuthEvidencePolicy;
+  clinical_evidence?: AuthEvidenceClinicalEvidence;
+  criteria_assessment?: AuthEvidenceCriterionAssessment[];
+  authorization_readiness?: AuthorizationReadiness;
+  review_summary?: string;
+  coverage_enrichment?: CoverageEnrichment;
+  provider_npi?: string;
+  coverage_agent_requested?: boolean;
 }
 
 // --- Progress tracking types (SSE streaming) ---
